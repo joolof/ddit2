@@ -1,0 +1,14 @@
+dpc                    35.40
+r0                     70.000000000
+pin                    10.000000
+pout                   -5.00000
+comp                   Draine
+smin                   0.1
+smax                   1000.
+grain                  -3.500
+mdisk                  1.e-08
+opang                  0.05
+nr                     250
+nt                     500
+ng					   100
+nz                     100
