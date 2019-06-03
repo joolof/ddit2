@@ -6,9 +6,9 @@ comp                   Draine
 smin                   0.1
 smax                   1000.
 grain                  -3.500
-mdisk                  1.e-08
+mdisk                  1.e-07
 opang                  0.05
-nr                     250
-nt                     500
+nr                     100
+nt                     250
 ng					   100
-nz                     100
+nz                     50

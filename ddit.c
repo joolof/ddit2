@@ -39,7 +39,9 @@ int main(int argc, char *argv[])
 	//  ------------------------------------
 	//  Change some paraneters if they were passed as CLA
 	//  ------------------------------------
+	//printf("%f\n", param.smin);
 	update_parameters(argv, star, &param, &cla);
+	//printf("%f\n", param.smin);
 	check_validity(&param);
 	//  ------------------------------------
 	//  Initialize the structure and read the stellar properties
@@ -55,7 +57,7 @@ int main(int argc, char *argv[])
     // ------------------------------------
 	// Do the thing
     // ------------------------------------
-	
+	get_sed(star, &param, sarray, warray, rtarray);
     // ------------------------------------
     // Finished
     // ------------------------------------
@@ -71,6 +73,79 @@ int main(int argc, char *argv[])
     free(sarray);
     free(rtarray);
     return 0;
+}
+/* 
+---------------------------------------------------------
+---------------------------------------------------------
+Ok, let's do the thing
+---------------------------------------------------------
+---------------------------------------------------------
+*/
+void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray)
+{
+	int ir, ig, iwav, iz, it;
+	char junk[1000];
+	double ri[param->nr+1], zi[param->nz+1], rtemp[param->nt], btemp[param->nt];
+	double dist = 0., rdens = 0., rin = 0., rout = 0., rmid = 0., height = 0., vol = 0.;
+	double zmid = 0., tgrain = 0., tmp = 0., thermc = 0., mdust = 0., Tmax = -1.;
+	// -------------------------------------------	
+    for (it=0 ; it < param->nt ; it++) btemp[it] = rtarray[it].btemp_grid ;
+	for (iwav = 0; iwav < param->nwav; iwav++) warray[iwav].femis = 0.;
+	rin = pow(threshold, 1.e0/param->pin) * param->r0 ;
+	rout = pow(threshold, 1.e0/param->pout) * param->r0 ;
+	// -------------------------------------------	
+	for (ir=0 ;ir < param->nr + 1; ir++) 
+	{
+		ri[ir] = rin * pow((rout / rin),((ir * 1.0) / (param->nr * 1.0)));
+	}
+	// -------------------------------------------	
+	for (ir=0 ;ir < param->nr; ir++) 
+	{
+		rmid = sqrt(ri[ir]*ri[ir+1]);
+		for (iz = 0; iz < param->nz + 1; iz++)
+		{
+			height = rmid * param->opang;
+			zi[iz] = -5.*height + 10.*height*((iz*1.)/(param->nz*1.));
+		}
+		for (iz = 0; iz < param->nz; iz++)
+		{
+			zmid = (zi[iz] + zi[iz+1])/2.e0;
+			dist = sqrt(zmid * zmid + rmid * rmid);
+			rdens = exp(-1.e0 * zmid * zmid / (2. * height * height)) / sqrt(pow(rmid / param->r0, -2.e0 * param->pin) + pow(rmid/param->r0, -2.e0 * param->pout));
+			vol = M_PI * ((ri[ir+1] * ri[ir+1]) - (ri[ir] * ri[ir])) * (zi[iz+1] - zi[iz]);
+			for (ig = 0; ig < param->ng; ig++)
+			{
+				for (it = 0; it < param->nt ; it++)
+				{
+					rtemp[it] = rtarray[it * param->ng + ig].rt;
+				}
+				tgrain = interpolate_log_down(rtemp, btemp, param->nt, dist);
+				if (tgrain > Tmax) Tmax = tgrain;
+				for (iwav = 0; iwav < param->nwav; iwav++)
+				{
+					tmp = exp(warray[iwav].nuhh / tgrain);
+					thermc = 2.0 * HH * M_PI * warray[iwav].nu3 / CC2 / (tmp - 1.) ;
+					thermc *= 4.0 * M_PI *  sarray[ig].gsize *sarray[ig].gsize * sarray[iwav * param->ng + ig].qabs;
+					tmp = vol * rdens * sarray[ig].ndens;
+					warray[iwav].femis += (tmp * thermc);
+				}
+				mdust += (tmp * 4.0/3.0 * M_PI * param->density * sarray[ig].gsize * sarray[ig].gsize * sarray[ig].gsize);
+			}
+		}
+
+	}
+	printf("%f\n", Tmax);
+  	sprintf(junk, "%s/SED.dat",star);
+	FILE *fichier = fopen(junk, "w" );
+	fprintf(fichier,"Wave Lstar Disk\n");
+	for (iwav = 0; iwav < param->nwav; iwav++)
+	{
+		warray[iwav].femis = warray[iwav].femis / mdust * param->mdisk * param->geom_corr_fact;
+		fprintf(fichier,"%f %8.10e %8.10e\n", warray[iwav].wav, warray[iwav].lstar, warray[iwav].femis);
+	}
+	fclose(fichier);
+	
+
 }
 /* 
 ---------------------------------------------------------
@@ -241,6 +316,7 @@ void update_parameters(char *argv[], char * star, Param *param, Cla *cla)
 	if (cla->grain > 0) param->grain  = atof(argv[cla->grain]) ;
 	if (cla->opang > 0) param->opang  = atof(argv[cla->opang]) ;
 	if (cla->mdisk > 0) param->mdisk  = atof(argv[cla->mdisk]) ;
+	if (param->nz % 2 == 0) param->nz+=1;
     //---------------------------------------------------------
     // Check if the opacities were already calculated
     //---------------------------------------------------------
@@ -255,6 +331,15 @@ void update_parameters(char *argv[], char * star, Param *param, Cla *cla)
         // it does exist
         param->isqfile = true ;
     }
+	// -------------------------------------------------------
+	// Update some parameters
+	// -------------------------------------------------------
+	param->smin *= 1.e-4;
+	param->smax *= 1.e-4;
+	param->r0 *= AU ;
+	param->mdisk *= MS ;
+	param->dpc *= PC ;
+	param->geom_corr_fact = 1.e0 / (4.e0 * M_PI * param->dpc * param->dpc);
 }
 /* 
 ---------------------------------------------------------
@@ -318,13 +403,6 @@ void check_validity(Param *param)
 		printf("--------------------------------------------------------------------------------\n");
 		exit(0);						
 	}
-	// -------------------------------------------------------
-	// Update some parameters
-	// -------------------------------------------------------
-	param->r0 *= AU ;
-	param->mdisk *= MS ;
-	param->dpc *= PC ;
-	param->geom_corr_fact = 1.e0 / (4.e0 * M_PI * param->dpc * param->dpc);
 }
 /* 
 ---------------------------------------------------------
@@ -739,7 +817,7 @@ void read_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, RTar
     double bplanck_grid[param->nt][param->nwav];
     char filename[1000];
 
-    sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin, param->smax, param->ng);
+    sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin*1.e4, param->smax*1.e4, param->ng);
     // ------------------------------------
     // I already checked that the file exists. With the proper grain sizes and ng
     // ------------------------------------
@@ -781,6 +859,7 @@ void read_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, RTar
     for (ig = 0; ig < param->ng ; ig++)
     {
         fscanf(fichier,"%lf", &sarray[ig].gsize);
+		sarray[ig].gsize *= 1.e-4;
         for (iwav = 0 ; iwav < param->nwav ; iwav++)
         {
             fscanf(fichier,"%lf %lf", &jwav, &jqabs);
@@ -838,7 +917,7 @@ void compute_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, R
     double bplanck_grid[param->nt][param->nwav];
     char filename[1000];
 
-    sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin, param->smax, param->ng);
+    sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin * 1.e4, param->smax*1.e4, param->ng);
     FILE *fichier = fopen(filename, "w" );
     fprintf(fichier, "%d %d\n", param->ng, param->nwav);
     // ------------------------------------
@@ -877,14 +956,14 @@ void compute_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, R
         {
             sarray[ig].gsize = param->smin;            
         }
-        fprintf(fichier, "%lf\n", sarray[ig].gsize);
+        fprintf(fichier, "%lf\n", sarray[ig].gsize*1.e4);
         for (iwav = 0 ; iwav < param->nwav ; iwav++)
         {
             // ------------------------------------
             // The optical constant at that given wavelength and the index
             // ------------------------------------
             cxref = Complex(warray[iwav].opt_real, warray[iwav].opt_imag);
-            x = 2.e0 * M_PI * sarray[ig].gsize / warray[iwav].wav ;
+            x = 2.e0 * M_PI * sarray[ig].gsize * 1.e4 / warray[iwav].wav ;
             // ------------------------------------
             // Compute Qabs and Qsca. I only need them locally
             // ------------------------------------
@@ -989,12 +1068,41 @@ void get_dust_properties(char *star, Param *param, Sarray *sarray, Warray *warra
                 dummy2 = sqrt(sarray[ig].gsize * sarray[ig+1].gsize) ;
                 delta_s = log10(dummy2) - log10(dummy) ;
             }
-            sarray[ig].ndens = pow(sarray[ig].gsize/sarray[0].gsize, param->grain) * sarray[ig].gsize * delta_s ;
+			sarray[ig].ndens = pow(sarray[ig].gsize/sarray[0].gsize, param->grain) * sarray[ig].gsize * delta_s ;
         }
     }
     else
     {
         sarray[0].ndens = 1.e0 ;      
     }
+}
+/* 
+---------------------------------------------------------
+---------------------------------------------------------
+Interpolation function, in log-space, for x-arrays in decreasing order
+---------------------------------------------------------
+---------------------------------------------------------
+*/
+double interpolate_log_down(double *x, double *y, int n, double ix)
+{
+    int j = binarySearchDown(x, n-1, ix);
+    double iy = log(y[j]) + (log(y[j+1]) - log(y[j])) / (log(x[j+1]) - log(x[j])) * (log(ix) - log(x[j]));
+    iy = exp(iy);
+    return iy;
+}
+int binarySearchDown(double arr[], int h, double x)
+{
+    int m, l = 0;
+    while (h-l > 1)
+    {
+        m = l + (h-l)/2;
+        if (arr[m] == x)
+           return m;
+        if (arr[m] > x)
+            l = m ;
+        else
+            h = m;
+    }
+    return l;
 }
 

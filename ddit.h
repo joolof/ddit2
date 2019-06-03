@@ -12,6 +12,7 @@
 #define CXONE Complex(1.0, 0.0)
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
+#define threshold 0.01
 // ----------------------------------------------------------------------------
 // Define some structures first
 // ----------------------------------------------------------------------------
@@ -36,7 +37,7 @@ typedef struct  {
 // Structure for the stellar properties
 // ----------------------------------------------------------------------------
 typedef struct  {
-	double wav, nu, nu3, nuhh, lstar, opt_real, opt_imag ;
+	double wav, nu, nu3, nuhh, lstar, opt_real, opt_imag, femis ;
 } Warray ;
 // ----------------------------------------------------------------------------
 // Structure for the grain size arrays
@@ -68,4 +69,7 @@ void compute_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, R
 double get_integrate(double *x, double *fx, int len);
 void read_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray);
 void get_dust_properties(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray, Cla *cla);
+void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray);
+double interpolate_log_down(double *x, double *y, int n, double ix);
+int binarySearchDown(double arr[], int h, double x);
 
