@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 	char * star ;
 	double seconds ;
 	//  ------------------------------------
-    clock_t start = clock();
+	clock_t start = clock();
 	//  ------------------------------------
 	// Initialise all the structures
 	//  ------------------------------------
@@ -48,17 +48,17 @@ int main(int argc, char *argv[])
 	rtarray = malloc ((param.nt * param.ng) * sizeof(RTarray));
 	warray = malloc (param.nwav * sizeof(Warray));
 	read_stellar(star, warray, &param);
-    // ------------------------------------
+	// ------------------------------------
 	// Get the dust properties
-    // ------------------------------------
+	// ------------------------------------
 	get_dust_properties(star, &param, sarray, warray, rtarray, &cla);
-    // ------------------------------------
+	// ------------------------------------
 	// Do the thing
-    // ------------------------------------
+	// ------------------------------------
 	get_sed(star, &param, sarray, warray, rtarray, &cla);
-    // ------------------------------------
-    // Finished
-    // ------------------------------------
+	// ------------------------------------
+	// Finished
+	// ------------------------------------
 	clock_t end = clock();
 	seconds = (float)(end - start) / CLOCKS_PER_SEC;
 	if (cla.verbose)
@@ -87,7 +87,7 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 	double dist = 0., rdens = 0., rin = 0., rout = 0., rmid = 0., height = 0., vol = 0.;
 	double zmid = 0., tgrain = 0., tmp = 0., thermc = 0., mdust = 0., Tmax = -1.;
 	// -------------------------------------------	
-    for (it=0 ; it < param->nt ; it++) btemp[it] = rtarray[it].btemp_grid ;
+	for (it=0 ; it < param->nt ; it++) btemp[it] = rtarray[it].btemp_grid ;
 	for (iwav = 0; iwav < param->nwav; iwav++) warray[iwav].femis = 0.;
 	rin = pow(threshold, 1.e0/param->pin) * param->r0 ;
 	rout = pow(threshold, 1.e0/param->pout) * param->r0 ;
@@ -166,8 +166,8 @@ void read_parameters(char *star, Param *param)
 		printf("--------------------------------------------------------------------------------\n");
 		exit(0);
 	}
-    else 
-    {
+	else 
+	{
 		while (fgets(junk, 1000, fparam) != 0)
 		{
 			sscanf(junk, "dpc %lf", &param->dpc) ;
@@ -186,7 +186,7 @@ void read_parameters(char *star, Param *param)
 			sscanf(junk, "comp %s", param->comp) ;
 		}
 		fclose(fparam);
-    }
+	}
 }
 /* 
 ---------------------------------------------------------
