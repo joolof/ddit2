@@ -69,7 +69,7 @@ void compute_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, R
 double get_integrate(double *x, double *fx, int len);
 void read_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray);
 void get_dust_properties(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray, Cla *cla);
-void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray);
+void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray, Cla *cla);
 double interpolate_log_down(double *x, double *y, int n, double ix);
 int binarySearchDown(double arr[], int h, double x);
 

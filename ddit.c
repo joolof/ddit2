@@ -24,8 +24,8 @@ int main(int argc, char *argv[])
 	//  ------------------------------------
 	Param param = {0, 0, 0, 0, 0, 0, 0., 0., 0., 0., 0., 0., 0., 3., 2000., 0., 0.1, 1000., 3.5, "", false};
 	Cla cla = {0, 0, 0, 0, 0, 0, false};
-    Sarray * sarray ; // structure for grain sizes dependant arrays
-    RTarray * rtarray ; // structure for radius-temperature arrays
+	Sarray * sarray ; // structure for grain sizes dependant arrays
+	RTarray * rtarray ; // structure for radius-temperature arrays
 	Warray * warray ; // structure for the wavelength dependent array
 	//  ------------------------------------
 	//  Get the name of the parameter file
@@ -39,40 +39,38 @@ int main(int argc, char *argv[])
 	//  ------------------------------------
 	//  Change some paraneters if they were passed as CLA
 	//  ------------------------------------
-	//printf("%f\n", param.smin);
 	update_parameters(argv, star, &param, &cla);
-	//printf("%f\n", param.smin);
 	check_validity(&param);
 	//  ------------------------------------
 	//  Initialize the structure and read the stellar properties
 	//  ------------------------------------
-    sarray = malloc ((param.nwav * param.ng) * sizeof(Sarray));
-    rtarray = malloc ((param.nt * param.ng) * sizeof(RTarray));
+	sarray = malloc ((param.nwav * param.ng) * sizeof(Sarray));
+	rtarray = malloc ((param.nt * param.ng) * sizeof(RTarray));
 	warray = malloc (param.nwav * sizeof(Warray));
 	read_stellar(star, warray, &param);
     // ------------------------------------
 	// Get the dust properties
     // ------------------------------------
-    get_dust_properties(star, &param, sarray, warray, rtarray, &cla);
+	get_dust_properties(star, &param, sarray, warray, rtarray, &cla);
     // ------------------------------------
 	// Do the thing
     // ------------------------------------
-	get_sed(star, &param, sarray, warray, rtarray);
+	get_sed(star, &param, sarray, warray, rtarray, &cla);
     // ------------------------------------
     // Finished
     // ------------------------------------
-    clock_t end = clock();
-    seconds = (float)(end - start) / CLOCKS_PER_SEC;
-    if (cla.verbose)
-    {
-        printf("--------------------------------------------------------------------------------\n");
-        printf("CPU time\t\t= %.2f\t\t[s]\n",seconds);
-        printf("--------------------------------------------------------------------------------\n\n");
-    }
-    free(warray);
-    free(sarray);
-    free(rtarray);
-    return 0;
+	clock_t end = clock();
+	seconds = (float)(end - start) / CLOCKS_PER_SEC;
+	if (cla.verbose)
+	{
+		printf("--------------------------------------------------------------------------------\n");
+		printf("Took: %.2f [s]\n",seconds);
+		printf("--------------------------------------------------------------------------------\n");
+	}
+	free(warray);
+	free(sarray);
+	free(rtarray);
+	return 0;
 }
 /* 
 ---------------------------------------------------------
@@ -81,7 +79,7 @@ Ok, let's do the thing
 ---------------------------------------------------------
 ---------------------------------------------------------
 */
-void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray)
+void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray, Cla *cla)
 {
 	int ir, ig, iwav, iz, it;
 	char junk[1000];
@@ -102,9 +100,9 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 	for (ir=0 ;ir < param->nr; ir++) 
 	{
 		rmid = sqrt(ri[ir]*ri[ir+1]);
+		height = rmid * param->opang;
 		for (iz = 0; iz < param->nz + 1; iz++)
 		{
-			height = rmid * param->opang;
 			zi[iz] = -5.*height + 10.*height*((iz*1.)/(param->nz*1.));
 		}
 		for (iz = 0; iz < param->nz; iz++)
@@ -134,7 +132,10 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 		}
 
 	}
-	printf("%f\n", Tmax);
+	if (cla->verbose)
+	{
+		printf("Max temperature: %.2f [K]\n", Tmax);
+	}
   	sprintf(junk, "%s/SED.dat",star);
 	FILE *fichier = fopen(junk, "w" );
 	fprintf(fichier,"Wave Lstar Disk\n");
@@ -1031,7 +1032,7 @@ void get_dust_properties(char *star, Param *param, Sarray *sarray, Warray *warra
     {
         if (cla->verbose)
         {
-            printf("--------------------------------------------------------------------------------\n");
+            /*printf("--------------------------------------------------------------------------------\n");*/
             printf("Computing the opacities ... \n");
         }
         compute_opacity(star, param, sarray, warray, rtarray);
@@ -1040,7 +1041,7 @@ void get_dust_properties(char *star, Param *param, Sarray *sarray, Warray *warra
     {
         if (cla->verbose)
         {
-            printf("--------------------------------------------------------------------------------\n");
+            /*printf("--------------------------------------------------------------------------------\n");*/
             printf("Reading the opacities ... \n");
         }
         read_opacity(star, param, sarray, warray, rtarray);
