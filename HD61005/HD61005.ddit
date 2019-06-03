@@ -8,7 +8,7 @@ smax                   1000.
 grain                  -3.500
 mdisk                  1.e-07
 opang                  0.05
-nr                     100
+nr                     50
 nt                     250
 ng					   100
-nz                     50
+nz                     10

@@ -63,9 +63,7 @@ int main(int argc, char *argv[])
 	seconds = (float)(end - start) / CLOCKS_PER_SEC;
 	if (cla.verbose)
 	{
-		printf("--------------------------------------------------------------------------------\n");
-		printf("Took: %.2f [s]\n",seconds);
-		printf("--------------------------------------------------------------------------------\n");
+		printf("+ Total time: %.2f [s]\n",seconds);
 	}
 	free(warray);
 	free(sarray);
@@ -84,35 +82,51 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 	int ir, ig, iwav, iz, it;
 	char junk[1000];
 	double ri[param->nr+1], zi[param->nz+1], rtemp[param->nt], btemp[param->nt];
-	double dist = 0., rdens = 0., rin = 0., rout = 0., rmid = 0., height = 0., vol = 0.;
+	double dist = 0., rdens = 0., zdens = 0., tdens = 0., rin = 0., rout = 0., rmid = 0., height = 0., vol = 0.;
 	double zmid = 0., tgrain = 0., tmp = 0., thermc = 0., mdust = 0., Tmax = -1.;
+	double gs2 = 0., gs3 = 0.;
 	// -------------------------------------------	
 	for (it=0 ; it < param->nt ; it++) btemp[it] = rtarray[it].btemp_grid ;
 	for (iwav = 0; iwav < param->nwav; iwav++) warray[iwav].femis = 0.;
 	rin = pow(threshold, 1.e0/param->pin) * param->r0 ;
 	rout = pow(threshold, 1.e0/param->pout) * param->r0 ;
 	// -------------------------------------------	
+	// Define the radial array, over [nr+1]
+	// -------------------------------------------	
 	for (ir=0 ;ir < param->nr + 1; ir++) 
 	{
 		ri[ir] = rin * pow((rout / rin),((ir * 1.0) / (param->nr * 1.0)));
 	}
 	// -------------------------------------------	
+	// Now do the loop over all the r values
+	// -------------------------------------------	
 	for (ir=0 ;ir < param->nr; ir++) 
 	{
-		rmid = sqrt(ri[ir]*ri[ir+1]);
-		height = rmid * param->opang;
+		rmid = sqrt(ri[ir]*ri[ir+1]); // This is the center of the two points, since ri is log spaced.
+		height = rmid * param->opang; // opang * r is 1 sigma for the vertical distribution
+		rdens = 1.e0 / sqrt(pow(rmid / param->r0, -2.e0 * param->pin) + pow(rmid/param->r0, -2.e0 * param->pout));
+		// -------------------------------------------	
+		// Define the vertical array, in linear space between -5, +5 sigma
+		// -------------------------------------------	
 		for (iz = 0; iz < param->nz + 1; iz++)
 		{
 			zi[iz] = -5.*height + 10.*height*((iz*1.)/(param->nz*1.));
 		}
+		// -------------------------------------------	
+		// Because zi is spaced linearly the delta_z should always be
+		// the same, hence I don't have to re-evluate each time.
+		// -------------------------------------------	
+		vol = M_PI * ((ri[ir+1] * ri[ir+1]) - (ri[ir] * ri[ir])) * (zi[1] - zi[0]);
 		for (iz = 0; iz < param->nz; iz++)
 		{
 			zmid = (zi[iz] + zi[iz+1])/2.e0;
 			dist = sqrt(zmid * zmid + rmid * rmid);
-			rdens = exp(-1.e0 * zmid * zmid / (2. * height * height)) / sqrt(pow(rmid / param->r0, -2.e0 * param->pin) + pow(rmid/param->r0, -2.e0 * param->pout));
-			vol = M_PI * ((ri[ir+1] * ri[ir+1]) - (ri[ir] * ri[ir])) * (zi[iz+1] - zi[iz]);
+			zdens = exp(-1.e0 * zmid * zmid / (2. * height * height));
 			for (ig = 0; ig < param->ng; ig++)
 			{
+				tdens = vol * rdens * zdens * sarray[ig].ndens;
+				gs2 = 4.e0 * M_PI * sarray[ig].gsize * sarray[ig].gsize;
+				gs3 = gs2 * sarray[ig].gsize;
 				for (it = 0; it < param->nt ; it++)
 				{
 					rtemp[it] = rtarray[it * param->ng + ig].rt;
@@ -123,18 +137,16 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 				{
 					tmp = exp(warray[iwav].nuhh / tgrain);
 					thermc = 2.0 * HH * M_PI * warray[iwav].nu3 / CC2 / (tmp - 1.) ;
-					thermc *= 4.0 * M_PI *  sarray[ig].gsize *sarray[ig].gsize * sarray[iwav * param->ng + ig].qabs;
-					tmp = vol * rdens * sarray[ig].ndens;
-					warray[iwav].femis += (tmp * thermc);
+					thermc *= gs2 * sarray[iwav * param->ng + ig].qabs;
+					warray[iwav].femis += (tdens * thermc);
 				}
-				mdust += (tmp * 4.0/3.0 * M_PI * param->density * sarray[ig].gsize * sarray[ig].gsize * sarray[ig].gsize);
+				mdust += (tdens * param->density * gs3 / 3.0);
 			}
 		}
-
 	}
 	if (cla->verbose)
 	{
-		printf("Max temperature: %.2f [K]\n", Tmax);
+		printf("+ Max temperature: %.2f [K]\n", Tmax);
 	}
   	sprintf(junk, "%s/SED.dat",star);
 	FILE *fichier = fopen(junk, "w" );
@@ -145,8 +157,6 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 		fprintf(fichier,"%f %8.10e %8.10e\n", warray[iwav].wav, warray[iwav].lstar, warray[iwav].femis);
 	}
 	fclose(fichier);
-	
-
 }
 /* 
 ---------------------------------------------------------
@@ -162,8 +172,8 @@ void read_parameters(char *star, Param *param)
 	FILE *fparam = fopen(junk, "r" );
 	if (fparam == 0)
 	{
-		printf("Could not open the param file (%s/%s.ddit).\n", star, star);
-		printf("--------------------------------------------------------------------------------\n");
+		printf("+ Could not open the param file (%s/%s.ddit).\n", star, star);
+		/*printf("--------------------------------------------------------------------------------\n");*/
 		exit(0);
 	}
 	else 
@@ -264,9 +274,8 @@ void get_input_arguments(int argc, char *argv[], char *star[], Cla *cla, Param *
 
 	  if (cla->verbose)
 	  {
-			printf(" \n");
-			printf("Reading parameter file \"%s/%s.ddit\"\n", * star, * star);
-			printf("--------------------------------------------------------------------------------\n");
+			printf("+ Reading the parameter file: \"%s/%s.ddit\"\n", * star, * star);
+			/*printf("--------------------------------------------------------------------------------\n");*/
 	  }
 }
 /*
@@ -1033,7 +1042,7 @@ void get_dust_properties(char *star, Param *param, Sarray *sarray, Warray *warra
         if (cla->verbose)
         {
             /*printf("--------------------------------------------------------------------------------\n");*/
-            printf("Computing the opacities ... \n");
+            printf("+ Computing the opacities\n");
         }
         compute_opacity(star, param, sarray, warray, rtarray);
     }
@@ -1042,7 +1051,7 @@ void get_dust_properties(char *star, Param *param, Sarray *sarray, Warray *warra
         if (cla->verbose)
         {
             /*printf("--------------------------------------------------------------------------------\n");*/
-            printf("Reading the opacities ... \n");
+            printf("+ Reading the opacities\n");
         }
         read_opacity(star, param, sarray, warray, rtarray);
     }
