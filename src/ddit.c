@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	//  ------------------------------------
 	// Initialise all the structures
 	//  ------------------------------------
-	Param param = {0, 0, 0, 0, 0, 0, 0., 0., 0., 0., 0., 0., 0., 3., 2000., 0., 0.1, 1000., 3.5, "", false};
+	Param param = {0, 0, 0, 0, 0, 0., 0., 0., 0., 0., 0., 0., 3., 2000., 0., 0.1, 1000., 3.5, "", false};
 	Cla cla = {0, 0, 0, 0, 0, 0, false};
 	Sarray * sarray ; // structure for grain sizes dependant arrays
 	RTarray * rtarray ; // structure for radius-temperature arrays
@@ -79,11 +79,11 @@ Ok, let's do the thing
 */
 void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *rtarray, Cla *cla)
 {
-	int ir, ig, iwav, iz, it;
+	int ir, ig, iwav, it;
 	char junk[1000];
-	double ri[param->nr+1], zi[param->nz+1], rtemp[param->nt], btemp[param->nt];
-	double dist = 0., rdens = 0., zdens = 0., tdens = 0., rin = 0., rout = 0., rmid = 0., height = 0., vol = 0.;
-	double zmid = 0., tgrain = 0., tmp = 0., thermc = 0., mdust = 0., Tmax = -1.;
+	double ri[param->nr+1], rtemp[param->nt], btemp[param->nt];
+	double rdens = 0., tdens = 0., rin = 0., rout = 0., rmid = 0., vol = 0.;
+	double tgrain = 0., tmp = 0., thermc = 0., mdust = 0., Tmax = -1.;
 	double gs2 = 0., gs3 = 0.;
 	// -------------------------------------------	
 	for (it=0 ; it < param->nt ; it++) btemp[it] = rtarray[it].btemp_grid ;
@@ -103,45 +103,27 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 	for (ir=0 ;ir < param->nr; ir++) 
 	{
 		rmid = sqrt(ri[ir]*ri[ir+1]); // This is the center of the two points, since ri is log spaced.
-		height = rmid * param->opang; // opang * r is 1 sigma for the vertical distribution
 		rdens = 1.e0 / sqrt(pow(rmid / param->r0, -2.e0 * param->pin) + pow(rmid/param->r0, -2.e0 * param->pout));
-		// -------------------------------------------	
-		// Define the vertical array, in linear space between -5, +5 sigma
-		// -------------------------------------------	
-		for (iz = 0; iz < param->nz + 1; iz++)
+		vol = 4.e0 * M_PI * ((ri[ir+1] * ri[ir+1] * ri[ir+1]) - (ri[ir] * ri[ir] * ri[ir])) / 3.;
+		for (ig = 0; ig < param->ng; ig++)
 		{
-			zi[iz] = -5.*height + 10.*height*((iz*1.)/(param->nz*1.));
-		}
-		// -------------------------------------------	
-		// Because zi is spaced linearly the delta_z should always be
-		// the same, hence I don't have to re-evluate each time.
-		// -------------------------------------------	
-		vol = M_PI * ((ri[ir+1] * ri[ir+1]) - (ri[ir] * ri[ir])) * (zi[1] - zi[0]);
-		for (iz = 0; iz < param->nz; iz++)
-		{
-			zmid = (zi[iz] + zi[iz+1])/2.e0;
-			dist = sqrt(zmid * zmid + rmid * rmid);
-			zdens = exp(-1.e0 * zmid * zmid / (2. * height * height));
-			for (ig = 0; ig < param->ng; ig++)
+			tdens = vol * rdens * sarray[ig].ndens;
+			gs2 = 4.e0 * M_PI * sarray[ig].gsize * sarray[ig].gsize;
+			gs3 = gs2 * sarray[ig].gsize;
+			for (it = 0; it < param->nt ; it++)
 			{
-				tdens = vol * rdens * zdens * sarray[ig].ndens;
-				gs2 = 4.e0 * M_PI * sarray[ig].gsize * sarray[ig].gsize;
-				gs3 = gs2 * sarray[ig].gsize;
-				for (it = 0; it < param->nt ; it++)
-				{
-					rtemp[it] = rtarray[it * param->ng + ig].rt;
-				}
-				tgrain = interpolate_log_down(rtemp, btemp, param->nt, dist);
-				if (tgrain > Tmax) Tmax = tgrain;
-				for (iwav = 0; iwav < param->nwav; iwav++)
-				{
-					tmp = exp(warray[iwav].nuhh / tgrain);
-					thermc = 2.0 * HH * M_PI * warray[iwav].nu3 / CC2 / (tmp - 1.) ;
-					thermc *= gs2 * sarray[iwav * param->ng + ig].qabs;
-					warray[iwav].femis += (tdens * thermc);
-				}
-				mdust += (tdens * param->density * gs3 / 3.0);
+				rtemp[it] = rtarray[it * param->ng + ig].rt;
 			}
+			tgrain = interpolate_log_down(rtemp, btemp, param->nt, rmid);
+			if (tgrain > Tmax) Tmax = tgrain;
+			for (iwav = 0; iwav < param->nwav; iwav++)
+			{
+				tmp = exp(warray[iwav].nuhh / tgrain);
+				thermc = 2.0 * HH * M_PI * warray[iwav].nu3 / CC2 / (tmp - 1.) ;
+				thermc *= gs2 * sarray[iwav * param->ng + ig].qabs;
+				warray[iwav].femis += (tdens * thermc);
+			}
+			mdust += (tdens * param->density * gs3 / 3.0);
 		}
 	}
 	if (cla->verbose)
@@ -191,7 +173,6 @@ void read_parameters(char *star, Param *param)
 			sscanf(junk, "opang %lf", &param->opang) ;
 			sscanf(junk, "nr %d", &param->nr) ;
 			sscanf(junk, "ng %d", &param->ng) ;
-			sscanf(junk, "nz %d", &param->nz) ;
 			sscanf(junk, "nt %d", &param->nt) ;
 			sscanf(junk, "comp %s", param->comp) ;
 		}
@@ -326,7 +307,6 @@ void update_parameters(char *argv[], char * star, Param *param, Cla *cla)
 	if (cla->grain > 0) param->grain  = atof(argv[cla->grain]) ;
 	if (cla->opang > 0) param->opang  = atof(argv[cla->opang]) ;
 	if (cla->mdisk > 0) param->mdisk  = atof(argv[cla->mdisk]) ;
-	if (param->nz % 2 == 0) param->nz+=1;
     //---------------------------------------------------------
     // Check if the opacities were already calculated
     //---------------------------------------------------------

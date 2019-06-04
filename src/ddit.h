@@ -21,7 +21,7 @@ typedef enum { false, true } bool;
 // Structure for the parametes of the disk model
 // ----------------------------------------------------------------------------
 typedef struct  {
-	int nr, ng, nz, nt, nwav, inu_peak;
+	int nr, ng, nt, nwav, inu_peak;
     double r0, pin, pout, mdisk, dpc, grain, opang, tmin, tmax, geom_corr_fact, smin, smax, density;
     char comp[128];
 	bool isqfile;
