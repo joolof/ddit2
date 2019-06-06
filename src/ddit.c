@@ -22,8 +22,8 @@ int main(int argc, char *argv[])
 	//  ------------------------------------
 	// Initialise all the structures
 	//  ------------------------------------
-	Param param = {0, 0, 0, 0, 0, 0., 0., 0., 0., 0., 0., 0., 3., 2000., 0., 0.1, 1000., 3.5, "", false};
-	Cla cla = {0, 0, 0, 0, 0, 0, false};
+	Param param = {0, 0, 0, 0, 0, 0., 0., 0., 0., 0., 0., 3., 2000., 0., 0.1, 1000., 3.5, "", false};
+	Cla cla = {0, 0, 0, 0, 0, false};
 	Sarray * sarray ; // structure for grain sizes dependant arrays
 	RTarray * rtarray ; // structure for radius-temperature arrays
 	Warray * warray ; // structure for the wavelength dependent array
@@ -170,7 +170,7 @@ void read_parameters(char *star, Param *param)
 			sscanf(junk, "smin %lf", &param->smin) ;
 			sscanf(junk, "smax %lf", &param->smax) ;
 			sscanf(junk, "mdisk %lf", &param->mdisk) ;
-			sscanf(junk, "opang %lf", &param->opang) ;
+			sscanf(junk, "density %lf", &param->density) ;
 			sscanf(junk, "nr %d", &param->nr) ;
 			sscanf(junk, "ng %d", &param->ng) ;
 			sscanf(junk, "nt %d", &param->nt) ;
@@ -221,7 +221,6 @@ void get_input_arguments(int argc, char *argv[], char *star[], Cla *cla, Param *
 			printf("    -pout <value>: power-law index for the outer regions\n");
 			printf("    -grain <value>: power-law index for the grain size dsitribution\n");
 			printf("    -mdisk <value>: dust mass\n");
-			printf("    -opang <value>: opening angle of the disk\n");
 			printf(" \n");
 			printf("To print some information while running the code,\nyou can add the keyword \"/verbose\"\n");
 			printf(" \n");
@@ -249,7 +248,6 @@ void get_input_arguments(int argc, char *argv[], char *star[], Cla *cla, Param *
 				if (strcmp(argv[i],"-grain") == 0) cla->grain = i+1;
 				if (strcmp(argv[i],"-mdisk") == 0) cla->mdisk = i+1;
 				if (strcmp(argv[i],"/verbose") == 0) cla->verbose = true;
-				if (strcmp(argv[i],"-opang") == 0) cla->opang = i+1;
 			}
 	  }
 
@@ -305,7 +303,6 @@ void update_parameters(char *argv[], char * star, Param *param, Cla *cla)
 	if (cla->pin > 0) param->pin  = atof(argv[cla->pin]);
 	if (cla->pout > 0) param->pout  = atof(argv[cla->pout]);
 	if (cla->grain > 0) param->grain  = atof(argv[cla->grain]) ;
-	if (cla->opang > 0) param->opang  = atof(argv[cla->opang]) ;
 	if (cla->mdisk > 0) param->mdisk  = atof(argv[cla->mdisk]) ;
     //---------------------------------------------------------
     // Check if the opacities were already calculated
@@ -902,7 +899,7 @@ void compute_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, R
     unsigned int iwav, ig, it, nang_tmp = 2;
     fcomplex cxref, cxs1[mxnang], cxs2[mxnang];
     double x = 0., qext_single = 0., qsca_single = 0., dummy1 = 0., dummy2 = 0., expterm = 0.;
-    double nu[param->nwav], lstar[param->nwav], lqabs[param->nwav], qabs[param->nwav], qbplanck[param->nwav];
+    double nu[param->nwav], lstar[param->nwav], lqabs[param->nwav], qbplanck[param->nwav];
     float qback = 0., gsca = 0.;
     double bplanck_grid[param->nt][param->nwav];
     char filename[1000];
@@ -970,7 +967,7 @@ void compute_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, R
         {
             for (iwav = 0 ; iwav < param->nwav ; iwav++)
             {
-                qbplanck[iwav] = bplanck_grid[it][iwav] * qabs[iwav] * M_PI ;
+                qbplanck[iwav] = bplanck_grid[it][iwav] * sarray[iwav * param->ng + ig].qabs * M_PI ;
             }
             dummy2 =  get_integrate(nu, qbplanck, param->nwav);
             rtarray[it * param->ng + ig].rt = sqrt(dummy1 / dummy2) * param->dpc * 0.5;

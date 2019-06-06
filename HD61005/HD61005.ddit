@@ -3,6 +3,7 @@ r0                     70.000000000
 pin                    10.000000
 pout                   -5.00000
 comp                   Draine
+density                3.5
 smin                   0.1
 smax                   1000.
 grain                  -3.500
