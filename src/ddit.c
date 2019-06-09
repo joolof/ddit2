@@ -11,7 +11,7 @@
 ---------------------------------------------------------
 Main program, call all the functions in order
 ---------------------------------------------------------
-gcc -o ddit ddit.c utils.c complex.c nrutil.c -lm
+gcc -o ddit ddit.c complex.c nrutil.c -lm
 */
 int main(int argc, char *argv[])
 {
