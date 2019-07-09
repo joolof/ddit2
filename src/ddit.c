@@ -109,7 +109,7 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 		{
 			tdens = vol * rdens * sarray[ig].ndens;
 			gs2 = 4.e0 * M_PI * sarray[ig].gsize * sarray[ig].gsize;
-			gs3 = gs2 * sarray[ig].gsize;
+			gs3 = gs2 * sarray[ig].gsize / 3.e0 * param->density;
 			for (it = 0; it < param->nt ; it++)
 			{
 				rtemp[it] = rtarray[it * param->ng + ig].rt;
@@ -123,7 +123,7 @@ void get_sed(char *star, Param *param, Sarray *sarray, Warray *warray, RTarray *
 				thermc *= gs2 * sarray[iwav * param->ng + ig].qabs;
 				warray[iwav].femis += (tdens * thermc);
 			}
-			mdust += (tdens * param->density * gs3 / 3.0);
+			mdust += (tdens * gs3);
 		}
 	}
 	if (cla->verbose)
@@ -1092,4 +1092,5 @@ int binarySearchDown(double arr[], int h, double x)
     }
     return l;
 }
+
 
