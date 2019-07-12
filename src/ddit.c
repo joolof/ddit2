@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	//  ------------------------------------
 	// Initialise all the structures
 	//  ------------------------------------
-	Param param = {0, 0, 0, 0, 0, 0., 0., 0., 0., 0., 0., 3., 2000., 0., 0.1, 1000., 3.5, "", false};
+	Param param = {0, 0, 0, 0, 0, 0., 0., 0., 0., 0., 0., 3., 2000., 0., 0.1, 1000., 3.5, 0., 0.1, 0.8, "", false};
 	Cla cla = {0, 0, 0, 0, 0, false};
 	Sarray * sarray ; // structure for grain sizes dependant arrays
 	RTarray * rtarray ; // structure for radius-temperature arrays
@@ -171,6 +171,9 @@ void read_parameters(char *star, Param *param)
 			sscanf(junk, "smax %lf", &param->smax) ;
 			sscanf(junk, "mdisk %lf", &param->mdisk) ;
 			sscanf(junk, "density %lf", &param->density) ;
+			sscanf(junk, "porosity %lf", &param->porosity) ;
+			sscanf(junk, "fcarbon %lf", &param->fcarbon) ;
+			sscanf(junk, "fmax %lf", &param->fmax) ;
 			sscanf(junk, "nr %d", &param->nr) ;
 			sscanf(junk, "ng %d", &param->ng) ;
 			sscanf(junk, "nt %d", &param->nt) ;
@@ -307,17 +310,38 @@ void update_parameters(char *argv[], char * star, Param *param, Cla *cla)
     //---------------------------------------------------------
     // Check if the opacities were already calculated
     //---------------------------------------------------------
-    sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin, param->smax, param->ng);
-    if( access(filename, F_OK ) == -1 ) 
-    {
-        // it does not exist
-        param->isqfile = false ;
-    }
-    else
-    {
-        // it does exist
-        param->isqfile = true ;
-    }
+	if (strcmp(param->comp,"DHS") == 0)
+	{
+		sprintf(filename, "%s/DHS_%.2f_%.2f_%.2f_%.2f_%.2f_%d.dat",star, param->porosity, param->fcarbon, param->fmax, param->smin, param->smax, param->ng);
+		if( access(filename, F_OK ) == -1 ) 
+		{
+			// it does not exist
+			printf("%s\n", filename);
+			printf("You need to compuate the absorption efficiencies with DHS before.\n");
+			printf("Quitting.\n");
+			printf("--------------------------------------------------------------------------------\n");
+			exit(0);						
+		}
+		else
+		{
+			// it does exist
+			param->isqfile = true ;
+		}
+	}
+	else
+	{
+		sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin, param->smax, param->ng);
+		if( access(filename, F_OK ) == -1 ) 
+		{
+			// it does not exist
+			param->isqfile = false ;
+		}
+		else
+		{
+			// it does exist
+			param->isqfile = true ;
+		}
+	}
 	// -------------------------------------------------------
 	// Update some parameters
 	// -------------------------------------------------------
@@ -803,13 +827,20 @@ void read_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, RTar
     double nu[param->nwav], lstar[param->nwav], lqabs[param->nwav], qbplanck[param->nwav];
     double bplanck_grid[param->nt][param->nwav];
     char filename[1000];
-
-    sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin*1.e4, param->smax*1.e4, param->ng);
+	
+	if (strcmp(param->comp,"DHS") == 0)
+	{
+		sprintf(filename, "%s/DHS_%.2f_%.2f_%.2f_%.2f_%.2f_%d.dat",star, param->porosity, param->fcarbon, param->fmax, param->smin*1.e4, param->smax*1.e4, param->ng);
+	}
+	else
+	{
+		sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin*1.e4, param->smax*1.e4, param->ng);
+	}
     // ------------------------------------
     // I already checked that the file exists. With the proper grain sizes and ng
     // ------------------------------------
     FILE *fichier = fopen(filename, "r" );
-    fscanf(fichier,"%d %d", &j1, &j2);
+    fscanf(fichier,"%d %d %lf", &j1, &j2, &param->density);
     // ------------------------------------
     // Make some checks on the numbers of grain sizes and wavelengths
     // ------------------------------------
@@ -906,7 +937,7 @@ void compute_opacity(char *star, Param *param, Sarray *sarray, Warray *warray, R
 
     sprintf(filename, "%s/%s_%.2f_%.2f_%d.dat",star, param->comp, param->smin * 1.e4, param->smax*1.e4, param->ng);
     FILE *fichier = fopen(filename, "w" );
-    fprintf(fichier, "%d %d\n", param->ng, param->nwav);
+    fprintf(fichier, "%d %d %lf\n", param->ng, param->nwav, param->density);
     // ------------------------------------
     // ------------------------------------
     for (iwav = 0 ; iwav < param->nwav ; iwav++)
@@ -1010,7 +1041,10 @@ void get_dust_properties(char *star, Param *param, Sarray *sarray, Warray *warra
     // ------------------------------------
     // Read and interpolate properly the optical constant from the comp file
     // ------------------------------------
-    get_optical_cst(param, warray);
+	if (strcmp(param->comp,"DHS") != 0)
+	{
+		get_optical_cst(param, warray);
+	}
     // ------------------------------------
     // Prepare the file for the qext file, if it does not exist
     // ------------------------------------

@@ -22,7 +22,7 @@ typedef enum { false, true } bool;
 // ----------------------------------------------------------------------------
 typedef struct  {
 	int nr, ng, nt, nwav, inu_peak;
-    double r0, pin, pout, mdisk, dpc, grain, tmin, tmax, geom_corr_fact, smin, smax, density;
+    double r0, pin, pout, mdisk, dpc, grain, tmin, tmax, geom_corr_fact, smin, smax, density, porosity, fcarbon, fmax;
     char comp[128];
 	bool isqfile;
 } Param ;
