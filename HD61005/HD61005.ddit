@@ -12,6 +12,6 @@ opang                  0.05
 nr                     100
 nt                     250
 ng					   100
-porosity               0.6
-fcarbon                0.15
+porosity               0.5
+fcarbon                0.0
 fmax                   0.8
